@@ -1,26 +1,25 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import h5py
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-
 import cmasher as cmr
+import numpy as np
+from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     jax.config.update("jax_enable_x64", True)
     N_ITERATIONS = 15_000
     REYNOLDS_NUMBER = 80
     DIAMETER = 1
 
-    NX = 300
+    NX = 2000
     NY = 50
     MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
 
-    PLOT_N_STEPS_TRUE = 100
+    SAVE_N_STEPS_TRUE = 100
+    PLOT_N_STEPS_TRUE = 500
+    SAVE = True
     SKIP_FIRST_N_ITERATIONS = 0
     VISUALIZE = True
 
@@ -85,7 +84,7 @@ if __name__ == '__main__':
     print(RELAXATION_OMEGA)
 
     velocity_profile = jnp.zeros((NX, NY, 2))
-    velocity_profile = velocity_profile.at[0, :, 0].set(MAX_HORIZONTAL_INFLOW_VELOCITY)
+    velocity_profile = velocity_profile.at[:, :, 0].set(MAX_HORIZONTAL_INFLOW_VELOCITY)
 
     def get_density(discrete_velocities):
         density = jnp.sum(discrete_velocities, axis=-1)  # last axis
@@ -130,7 +129,7 @@ if __name__ == '__main__':
 
     @jax.jit
     def update(discrete_velocities_prev):
-        # 1 Prescribe outflow on right boundary
+        # 1 Prescribe outflow on right boundary null-gradient
         discrete_velocities_prev = discrete_velocities_prev.at[-1, :, LEFT_VELOCITIES].set(
             discrete_velocities_prev[-2, :, LEFT_VELOCITIES])
 
@@ -139,7 +138,7 @@ if __name__ == '__main__':
         density_prev = get_density(discrete_velocities_prev)
         macroscopic_velocities_prev = get_macroscopic_velocities(discrete_velocities_prev, density_prev)
 
-        # Inflow ZOu;He
+        # Inflow Zou/He
 
         macroscopic_velocities_prev = macroscopic_velocities_prev.at[0, 1:-1, :].set(velocity_profile[0, 1:-1, :])
         density_prev = density_prev.at[0, :].set(
@@ -156,7 +155,7 @@ if __name__ == '__main__':
 
         equilibrium_discrete_velocities = get_equilibrium_velocities(macroscopic_velocities_prev, density_prev)
 
-        # ZOu;he
+        # Zou/he
         discrete_velocities_prev = discrete_velocities_prev.at[0, :, RIGHT_VELOCITIES].set(
             equilibrium_discrete_velocities[0, :, RIGHT_VELOCITIES])
 
@@ -208,56 +207,124 @@ if __name__ == '__main__':
     X, Y = jnp.meshgrid(x, y, indexing="ij")
     def run(discrete_velocities_prev):
 
-        for iteration_idx in tqdm(range(N_ITERATIONS)):
-            discrete_velocities_next = update(discrete_velocities_prev)
-            discrete_velocities_prev = discrete_velocities_next
+        with h5py.File('time_data.hdf5', 'w') as f:
 
-            if iteration_idx % PLOT_N_STEPS_TRUE == 0 and VISUALIZE and iteration_idx > SKIP_FIRST_N_ITERATIONS:
-                density = get_density(discrete_velocities_next)
-                macroscopic_velocities = (get_macroscopic_velocities(
-                    discrete_velocities_next,
-                    density
-                ))
+            for iteration_idx in tqdm(range(N_ITERATIONS)):
 
-                velocity_magnitude = jnp.linalg.norm(
-                    macroscopic_velocities,
-                    axis=-1,
-                    ord=2,
-                )
-                d_u__d_x, d_u__d_y = jnp.gradient(macroscopic_velocities[..., 0])
-                d_v__d_x, d_v__d_y = jnp.gradient(macroscopic_velocities[..., 1])
+                if SAVE and (iteration_idx == 0 or iteration_idx % SAVE_N_STEPS_TRUE == 0):
+                    data_numpy = np.array(discrete_velocities_prev)
+                    f.create_dataset(f'timestep_{iteration_idx}', data=data_numpy, compression ='gzip', compression_opts=5)
 
-                curl = (d_u__d_y - d_v__d_x)
+                discrete_velocities_next = update(discrete_velocities_prev)
+                discrete_velocities_prev = discrete_velocities_next
 
-                plt.subplot(211)
-                plt.contourf(
-                    X,
-                    Y,
-                    velocity_magnitude,
-                    cmap=cmr.lavender,
-                    levels=50,
-                )
-                plt.colorbar().set_label("Velocity Magnitude")
+                if iteration_idx % PLOT_N_STEPS_TRUE == 0 and VISUALIZE and iteration_idx > SKIP_FIRST_N_ITERATIONS:
+                    plot(discrete_velocities_next)
 
-                plt.subplot(212)
-                plt.contourf(
-                    X,
-                    Y,
-                    curl,
-                    levels=50,
-                    vmin=-0.02,
-                    vmax=0.02,
-                    cmap=cmr.eclipse
-                )
-                plt.colorbar().set_label("Vorticity Magnitude")
-                plt.draw()
-                plt.pause(0.0001)
-                plt.clf()
+    def plot(data):
+        density = get_density(data)
+        macroscopic_velocities = (get_macroscopic_velocities(
+            data,
+            density
+        ))
+        velocity_magnitude = jnp.linalg.norm(
+            macroscopic_velocities,
+            axis=-1,
+            ord=2,
+        )
 
-            if VISUALIZE:
-                plt.show()
+        d_u__d_x, d_u__d_y = jnp.gradient(macroscopic_velocities[..., 0])
+        d_v__d_x, d_v__d_y = jnp.gradient(macroscopic_velocities[..., 1])
+
+        curl = (d_u__d_y - d_v__d_x)
+
+        plt.subplot(211)
+        plt.contourf(
+            X,
+            Y,
+            velocity_magnitude,
+            cmap=cmr.lavender,
+            levels=50,
+        )
+        plt.colorbar().set_label("Velocity Magnitude")
+
+        plt.subplot(212)
+        plt.contourf(
+            X,
+            Y,
+            curl,
+            levels=50,
+            vmin=-0.02,
+            vmax=0.02,
+            cmap=cmr.eclipse
+        )
+        plt.colorbar().set_label("Vorticity Magnitude")
+
+        plt.draw()
+        plt.pause(0.0001)
+        plt.clf()
+        plt.show()
+    def animate():
+        # Open the HDF5 file
+        file = h5py.File('time_data.hdf5', 'r')
+
+        # Prepare the figure
+        fig, ax = plt.subplots()
+
+        # Get the keys sorted by timestep
+        keys = sorted(file.keys(), key=lambda x: int(x.split('_')[1]))
+
+        # Initial plot
+        initial_data = file[keys[0]][:]
+
+        density = get_density(initial_data)
+
+        macroscopic_velocities = (get_macroscopic_velocities(
+            initial_data,
+            density
+        ))
+        velocity_magnitude = jnp.linalg.norm(
+            macroscopic_velocities,
+            axis=-1,
+            ord=2,
+        )
 
 
+        contour = ax.contourf(X,Y,velocity_magnitude,cmap=cmr.lavender,
+            levels=50,)
+
+        fig.colorbar(contour)
+
+        def updatefig(key):
+            data = file[key][:]
+            density = get_density(data)
+
+            macroscopic_velocities = (get_macroscopic_velocities(
+                data,
+                density
+            ))
+            velocity_magnitude = jnp.linalg.norm(
+                macroscopic_velocities,
+                axis=-1,
+                ord=2,
+            )
+            contour = ax.contourf(X, Y, velocity_magnitude, cmap=cmr.lavender,
+                                  levels=50, )
+            return contour,
+
+        ani = FuncAnimation(fig, updatefig, frames=keys, interval=50, blit=False)
+
+        # Save the animation
+        ani.save('animation.mp4', writer='ffmpeg')
+
+        # Close the file
+        file.close()
 
 
-    run(get_equilibrium_velocities(velocity_profile, jnp.ones((NX, NY))))
+    def open_and_read():
+        with h5py.File('time_data.hdf5', 'r') as f:
+            for key in f.keys():
+                data = f[key][:]
+                plot(data)
+
+    animate()
