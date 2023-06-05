@@ -318,7 +318,6 @@ if __name__ == '__main__':
         ani.save('animation.mp4', writer=writer)
         file.close()
 
-
     def open_and_read():
         with h5py.File('time_data.hdf5', 'r') as f:
             for key in f.keys():
@@ -328,4 +327,3 @@ if __name__ == '__main__':
     run(get_equilibrium_velocities(velocity_profile, jnp.ones((NX, NY))))
     if ANIMATE:
         animate()
-
