@@ -4,8 +4,10 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import cmasher as cmr
 import numpy as np
+from matplotlib import animation
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
+from datetime import datetime
 
 if __name__ == '__main__':
     jax.config.update("jax_enable_x64", True)
@@ -19,7 +21,7 @@ if __name__ == '__main__':
 
     SAVE_N_STEPS_TRUE = 100
     PLOT_N_STEPS_TRUE = 500
-    SAVE = True
+    ANIMATE = False
     SKIP_FIRST_N_ITERATIONS = 0
     VISUALIZE = True
 
@@ -45,7 +47,6 @@ if __name__ == '__main__':
     """
 
     N_DISCRETE_VELOCITIES = 9
-
     LATTICE_VELOCITIES_X = jnp.array([0, 1, 0, -1, 0, 1, -1, -1, 1, ])
     LATTICE_VELOCITIES_Y = jnp.array([0, 0, 1, 0, -1, 1, 1, -1, -1, ])
 
@@ -80,8 +81,6 @@ if __name__ == '__main__':
             kinematic_viscosity
             +
             0.5)
-
-    print(RELAXATION_OMEGA)
 
     velocity_profile = jnp.zeros((NX, NY, 2))
     velocity_profile = velocity_profile.at[:, :, 0].set(MAX_HORIZONTAL_INFLOW_VELOCITY)
@@ -207,19 +206,44 @@ if __name__ == '__main__':
     X, Y = jnp.meshgrid(x, y, indexing="ij")
     def run(discrete_velocities_prev):
 
-        with h5py.File('time_data.hdf5', 'w') as f:
+        with h5py.File('data.hdf5', 'w') as raw:
+            raw_group = raw.create_group('raw_data')
+            vel_group = raw.create_group('vel_data')
 
             for iteration_idx in tqdm(range(N_ITERATIONS)):
 
-                if SAVE and (iteration_idx == 0 or iteration_idx % SAVE_N_STEPS_TRUE == 0):
+                if iteration_idx == 0 or iteration_idx % SAVE_N_STEPS_TRUE == 0:
                     data_numpy = np.array(discrete_velocities_prev)
-                    f.create_dataset(f'timestep_{iteration_idx}', data=data_numpy, compression ='gzip', compression_opts=5)
+                    vel_data = np.array(compute_velocity(discrete_velocities_prev))
+
+                    raw_group.create_dataset(f'timestep_{iteration_idx}',
+                                       data=data_numpy,
+                                       compression ='gzip',
+                                       compression_opts=5)
+
+
+                    vel_group.create_dataset(f'timestep_{iteration_idx}',
+                                       data=vel_data,
+                                       compression ='gzip',
+                                       compression_opts=5)
 
                 discrete_velocities_next = update(discrete_velocities_prev)
                 discrete_velocities_prev = discrete_velocities_next
 
                 if iteration_idx % PLOT_N_STEPS_TRUE == 0 and VISUALIZE and iteration_idx > SKIP_FIRST_N_ITERATIONS:
                     plot(discrete_velocities_next)
+    def compute_velocity(data):
+        density = get_density(data)
+        macroscopic_velocities = (get_macroscopic_velocities(
+            data,
+            density
+        ))
+        velocity_magnitude = jnp.linalg.norm(
+            macroscopic_velocities,
+            axis=-1,
+            ord=2,
+        )
+        return velocity_magnitude
 
     def plot(data):
         density = get_density(data)
@@ -265,59 +289,33 @@ if __name__ == '__main__':
         plt.clf()
         plt.show()
     def animate():
-        # Open the HDF5 file
-        file = h5py.File('time_data.hdf5', 'r')
+        file = h5py.File('data.hdf5', 'r')
+        g1 = file.get('vel_data')
 
-        # Prepare the figure
         fig, ax = plt.subplots()
 
-        # Get the keys sorted by timestep
-        keys = sorted(file.keys(), key=lambda x: int(x.split('_')[1]))
-
-        # Initial plot
-        initial_data = file[keys[0]][:]
-
-        density = get_density(initial_data)
-
-        macroscopic_velocities = (get_macroscopic_velocities(
-            initial_data,
-            density
-        ))
-        velocity_magnitude = jnp.linalg.norm(
-            macroscopic_velocities,
-            axis=-1,
-            ord=2,
-        )
+        keys = sorted(g1.keys(), key=lambda x: int(x.split('_')[1]))
 
 
-        contour = ax.contourf(X,Y,velocity_magnitude,cmap=cmr.lavender,
+        initial_data = g1[keys[0]][:]
+
+        contour = ax.contourf(X,Y,initial_data,cmap=cmr.lavender,
             levels=50,)
 
         fig.colorbar(contour)
 
         def updatefig(key):
-            data = file[key][:]
-            density = get_density(data)
-
-            macroscopic_velocities = (get_macroscopic_velocities(
-                data,
-                density
-            ))
-            velocity_magnitude = jnp.linalg.norm(
-                macroscopic_velocities,
-                axis=-1,
-                ord=2,
-            )
-            contour = ax.contourf(X, Y, velocity_magnitude, cmap=cmr.lavender,
+            data = g1[key][:]
+            contour = ax.contourf(X, Y, data, cmap=cmr.lavender,
                                   levels=50, )
             return contour,
 
         ani = FuncAnimation(fig, updatefig, frames=keys, interval=50, blit=False)
 
-        # Save the animation
-        ani.save('animation.mp4', writer='ffmpeg')
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps = 15, bitrate =1800)
 
-        # Close the file
+        ani.save('animation.mp4', writer=writer)
         file.close()
 
 
@@ -327,4 +325,7 @@ if __name__ == '__main__':
                 data = f[key][:]
                 plot(data)
 
-    animate()
+    run(get_equilibrium_velocities(velocity_profile, jnp.ones((NX, NY))))
+    if ANIMATE:
+        animate()
+
