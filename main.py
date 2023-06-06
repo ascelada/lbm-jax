@@ -262,7 +262,7 @@ if __name__ == '__main__':
 
         curl = (d_u__d_y - d_v__d_x)
 
-        plt.subplot(211)
+        plt.subplot(311)
         plt.contourf(
             X,
             Y,
@@ -272,7 +272,7 @@ if __name__ == '__main__':
         )
         plt.colorbar().set_label("Velocity Magnitude")
 
-        plt.subplot(212)
+        plt.subplot(312)
         plt.contourf(
             X,
             Y,
@@ -283,6 +283,9 @@ if __name__ == '__main__':
             cmap=cmr.eclipse
         )
         plt.colorbar().set_label("Vorticity Magnitude")
+
+        plt.subplot(313)
+        plt.plot(y, velocity_magnitude[NX/2,...])
 
         plt.draw()
         plt.pause(0.0001)
@@ -320,9 +323,10 @@ if __name__ == '__main__':
 
 
     def open_and_read():
-        with h5py.File('time_data.hdf5', 'r') as f:
-            for key in f.keys():
-                data = f[key][:]
+        with h5py.File('data.hdf5', 'r') as f:
+            g1 = f.get('raw_data')
+            for key in g1.keys():
+                data = g1[key][:]
                 plot(data)
 
     run(get_equilibrium_velocities(velocity_profile, jnp.ones((NX, NY))))
