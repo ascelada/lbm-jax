@@ -15,11 +15,11 @@ if __name__ == '__main__':
     REYNOLDS_NUMBER = 80
     DIAMETER = 1
 
-    NX = 2000
+    NX = 1000
     NY = 50
     MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
 
-    SAVE_N_STEPS_TRUE = 100
+    SAVE_N_STEPS_TRUE = 9999
     PLOT_N_STEPS_TRUE = 500
     ANIMATE = False
     SKIP_FIRST_N_ITERATIONS = 0
@@ -232,6 +232,15 @@ if __name__ == '__main__':
 
                 if iteration_idx % PLOT_N_STEPS_TRUE == 0 and VISUALIZE and iteration_idx > SKIP_FIRST_N_ITERATIONS:
                     plot(discrete_velocities_next)
+
+    def find_entrance_length(velocity_matrix, threshold):
+        # Iterate over the rows in the velocity matrix
+        for i, velocity_profile in enumerate(velocity_matrix):
+            # If the standard deviation of the velocities is below the threshold, return the index
+            if jnp.std(velocity_profile) < threshold:
+                return i
+        # If no entrance length was found, return a sentinel value
+        return -1
     def compute_velocity(data):
         density = get_density(data)
         macroscopic_velocities = (get_macroscopic_velocities(
@@ -285,7 +294,7 @@ if __name__ == '__main__':
         plt.colorbar().set_label("Vorticity Magnitude")
 
         plt.subplot(313)
-        plt.plot(y, velocity_magnitude[NX/2,...])
+        plt.plot(y[1:(NY-1)], velocity_magnitude[NX//2,1:-1])
 
         plt.draw()
         plt.pause(0.0001)
