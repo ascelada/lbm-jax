@@ -92,10 +92,13 @@ class LBMFlowSolver:
         Calculates the equilibrium discrete velocities for each grid cell (x, y) based on the macroscopic velocities
         and total density. The equilibrium discrete velocities are derived from the equilibrium distribution function,
         which is an approximation of the Maxwell-Boltzmann distribution.
+        Args:
+            macroscopic_velocities: Macroscopic velocities for each grid cell. Shape: (NX, NY, 2)
+            density: Density of the fluid. Shape: (NX, NY)
 
-        :param macroscopic_velocities: Macroscopic velocities for each grid cell. Shape: (NX, NY, 2)
-        :param density: Density of the fluid. Shape: (NX, NY)
-        :return: Equilibrium discrete velocities for each grid cell in each direction. Shape: (NX, NY, N_DISCRETE_VELOCITIES)
+        Returns:
+            Equilibrium discrete velocities for each grid cell in each direction.
+            Shape: (NX, NY, N_DISCRETE_VELOCITIES)
         """
 
         # Project macroscopic velocities onto the lattice velocities
@@ -187,10 +190,10 @@ class LBMFlowSolver:
         This function generates plots of the velocity field, vorticity, and
         velocity profile along the vertical centerline of the lattice.
 
-        :arg
-        data (jnp.array): The distribution function, which provides the
-                          probability of finding a particle with a certain
-                          velocity at a given point in the lattice.
+        Args:
+            data (jnp.array): The distribution function, which provides the
+                              probability of finding a particle with a certain
+                              velocity at a given point in the lattice.
         """
         density = self.get_density(data)
         macroscopic_velocities = (self.get_macroscopic_velocities(
@@ -208,7 +211,10 @@ class LBMFlowSolver:
 
         curl = (d_u__d_y - d_v__d_x)
 
-        plt.subplot(311)
+        X_masked = self.X[self.mask]
+        Y_masked = self.Y[self.mask]
+
+        plt.subplot(211)
         plt.contourf(
             self.X,
             self.Y,
@@ -216,9 +222,15 @@ class LBMFlowSolver:
             cmap=cmr.lavender,
             levels=50,
         )
+        plt.scatter(
+            X_masked,
+            Y_masked,
+            c='#C3c932',
+            s=10,
+        )
         plt.colorbar().set_label("Velocity Magnitude")
 
-        plt.subplot(312)
+        plt.subplot(212)
         plt.contourf(
             self.X,
             self.Y,
@@ -228,10 +240,17 @@ class LBMFlowSolver:
             vmax=0.02,
             cmap=cmr.eclipse
         )
+        plt.scatter(
+            X_masked,
+            Y_masked,
+            c='#339C4D',  # adjust color as needed
+            s=10,  # adjust size as needed
+        )
         plt.colorbar().set_label("Vorticity Magnitude")
+        plt.rcParams["figure.figsize"] = (20, 3)
 
-        plt.subplot(313)
-        plt.plot(self.y[1:(self.NY - 1)], velocity_magnitude[self.NX // 2, 1:-1])
+        #plt.subplot(313)
+        #plt.plot(self.y[1:(self.NY - 1)], velocity_magnitude[self.NX // 2, 1:-1])
         plt.draw()
         plt.pause(0.0001)
         plt.clf()
