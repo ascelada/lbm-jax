@@ -236,6 +236,14 @@ class LBMFlowSolver:
         plt.pause(0.0001)
         plt.clf()
         plt.show()
+    def find_entrance_length(self,velocity_matrix, threshold):
+        # Iterate over the rows in the velocity matrix
+        for i, velocity_profile in enumerate(velocity_matrix):
+            # If the standard deviation of the velocities is below the threshold, return the index
+            if jnp.std(velocity_profile) < threshold:
+                return i
+        # If no entrance length was found, return a sentinel value
+        return -1
     def animate(self):
         file = h5py.File('data.hdf5', 'r')
         g1 = file.get('vel_data')
