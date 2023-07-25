@@ -21,10 +21,12 @@ def collide(solver, discrete_velocities_prev, equilibrium_discrete_velocities):
                                              solver.LATTICE_INDICES[i]].set(
             discrete_velocities_prev[:, 0, solver.OPPOSITE_LATTICE_INDICES[i]]
         )
-        discrete_velocities_post_collision = \
-            discrete_velocities_post_collision.at[solver.mask, solver.LATTICE_INDICES[i]].set(
-                discrete_velocities_prev[solver.mask, solver.OPPOSITE_LATTICE_INDICES[i]]
-            )
+
+        if solver.isPorous:
+            discrete_velocities_post_collision = \
+                discrete_velocities_post_collision.at[solver.mask, solver.LATTICE_INDICES[i]].set(
+                    discrete_velocities_prev[solver.mask, solver.OPPOSITE_LATTICE_INDICES[i]]
+                )
 
     return discrete_velocities_post_collision
 

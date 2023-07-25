@@ -20,12 +20,13 @@ class LBMFlowSolver:
     NX = 1000
     NY = 50
     MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
-    SAVE_N_STEPS_TRUE = 9999
+    SAVE_N_STEPS_TRUE = 1000
     PLOT_N_STEPS_TRUE = 500
     ANIMATE = False
     SKIP_FIRST_N_ITERATIONS = 0
-    VISUALIZE = True
+    VISUALIZE = False
     kinematic_viscosity = 0.01
+    RHO = 1000
     RELAXATION_OMEGA = 1.0 / (3.0 * kinematic_viscosity + 0.5)
     velocity_profile = jnp.zeros((NX, NY, 2))
     velocity_profile = velocity_profile.at[:, :, 0].set(MAX_HORIZONTAL_INFLOW_VELOCITY)
@@ -55,6 +56,7 @@ class LBMFlowSolver:
     DOWN_VELOCITIES = jnp.array([4, 7, 8])
     PURE_VERTICAL_VELOCITIES = jnp.array([0, 2, 4])
     PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
+    isPorous = False
     mask = jnp.array(~ps.generators.blobs(shape=[NX, NY],
                         porosity= 0.95,
                         blobiness= 10))
@@ -247,7 +249,7 @@ class LBMFlowSolver:
             s=10,  # adjust size as needed
         )
         plt.colorbar().set_label("Vorticity Magnitude")
-        plt.rcParams["figure.figsize"] = (20, 3)
+        plt.rcParams["figure.figsize"] = (10, 3)
 
         #plt.subplot(313)
         #plt.plot(self.y[1:(self.NY - 1)], velocity_magnitude[self.NX // 2, 1:-1])
