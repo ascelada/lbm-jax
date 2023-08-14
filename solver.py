@@ -24,10 +24,10 @@ class LBMFlowSolver:
     PLOT_N_STEPS_TRUE = 500
     ANIMATE = False
     SKIP_FIRST_N_ITERATIONS = 0
-    VISUALIZE = False
-    kinematic_viscosity = 0.01
-    RHO = 1000
-    RELAXATION_OMEGA = 1.0 / (3.0 * kinematic_viscosity + 0.5)
+    VISUALIZE = True
+    KINEMATIC_VISCOSITY = 0.0222
+    RHO = 1
+    RELAXATION_OMEGA = 1.0 / (3.0 * KINEMATIC_VISCOSITY + 0.5)
     velocity_profile = jnp.zeros((NX, NY, 2))
     velocity_profile = velocity_profile.at[:, :, 0].set(MAX_HORIZONTAL_INFLOW_VELOCITY)
     x = jnp.arange(NX)
@@ -60,6 +60,26 @@ class LBMFlowSolver:
     mask = jnp.array(~ps.generators.blobs(shape=[NX, NY],
                         porosity= 0.95,
                         blobiness= 10))
+
+    def config(self, rho, kinematic_viscosity, reynolds ):
+
+        self.RHO = rho
+        self.KINEMATIC_VISCOSITY = kinematic_viscosity
+        self.REYNOLDS_NUMBER = reynolds
+
+        print(self.RHO)
+        print(self.KINEMATIC_VISCOSITY)
+        print(self.REYNOLDS_NUMBER)
+
+
+        print("Omega: ", self.RELAXATION_OMEGA)
+
+        response = input("Do You Want To Continue? [y/n]").lower().strip()
+        if response != 'y':
+            print("Exiting program")
+            exit()
+
+
 
     @staticmethod
     def get_density(discrete_velocities):

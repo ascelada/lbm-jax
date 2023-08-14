@@ -1,15 +1,10 @@
 import h5py
 import numpy as np
 
-
-import h5py
-import numpy as np
-
-import h5py
-import numpy as np
-
-def compare_entrance_length(file_path, group_name, threshold, D, rho, mu):
+def compare_entrance_length(file_path, group_name, threshold,D, rho, mu):
     # Open the HDF5 file
+
+
     with h5py.File(file_path, 'r') as f:
         # Access the group containing the datasets
         group = f[group_name]
@@ -30,14 +25,13 @@ def compare_entrance_length(file_path, group_name, threshold, D, rho, mu):
         # Ensure the data is a float type
         velocity_matrix = velocity_matrix.astype(float)
 
+        print(velocity_matrix)
+
         # Calculate mean entrance velocity to calculate Re
         u_mean_entrance = np.mean(velocity_matrix[0])
-        print(u_mean_entrance)
 
         # Calculate Reynolds number at the entrance
         Re_entrance = rho * u_mean_entrance * D / mu
-
-        print(Re_entrance)
 
         # Calculate analytical entrance length based on the entrance Reynolds number
         Le_analytical = 0.06 * Re_entrance * D
