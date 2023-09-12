@@ -61,11 +61,13 @@ class LBMFlowSolver:
                         porosity= 0.95,
                         blobiness= 10))
 
-    def config(self, rho, kinematic_viscosity, reynolds ):
+    def config(self, rho, kinematic_viscosity, reynolds, D ):
 
         self.RHO = rho
         self.KINEMATIC_VISCOSITY = kinematic_viscosity
         self.REYNOLDS_NUMBER = reynolds
+
+
 
         print(self.RHO)
         print(self.KINEMATIC_VISCOSITY)
