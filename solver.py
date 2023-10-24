@@ -8,7 +8,10 @@ import numpy as np
 from matplotlib import animation
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
+
 from functions import update
+from domain import generate_lattice_spheres
+
 import porespy as ps
 @flax.struct.dataclass
 class LBMFlowSolver:
@@ -17,15 +20,15 @@ class LBMFlowSolver:
     N_ITERATIONS = 15_000
     REYNOLDS_NUMBER = 80
     DIAMETER = 1
-    NX = 1000
-    NY = 50
+    NX = 500
+    NY = 500
     MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
     SAVE_N_STEPS_TRUE = 1000
     PLOT_N_STEPS_TRUE = 500
     ANIMATE = False
     SKIP_FIRST_N_ITERATIONS = 0
     VISUALIZE = True
-    KINEMATIC_VISCOSITY = 0.0222
+    KINEMATIC_VISCOSITY = 0.01
     RHO = 1
     RELAXATION_OMEGA = 1.0 / (3.0 * KINEMATIC_VISCOSITY + 0.5)
     velocity_profile = jnp.zeros((NX, NY, 2))
@@ -56,32 +59,30 @@ class LBMFlowSolver:
     DOWN_VELOCITIES = jnp.array([4, 7, 8])
     PURE_VERTICAL_VELOCITIES = jnp.array([0, 2, 4])
     PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
-    isPorous = False
-    mask = jnp.array(~ps.generators.blobs(shape=[NX, NY],
-                        porosity= 0.95,
-                        blobiness= 10))
+    isPorous = True
+    mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 12, spacing= 50, offset= 15))
+    porosity = jnp.sum(mask)/(NX*NY)
+    @classmethod
+    def config(cls, rho,inflow_vel, kinematic_viscosity, nx, ny):
 
-    def config(self, rho, kinematic_viscosity, reynolds, D ):
-
-        self.RHO = rho
-        self.KINEMATIC_VISCOSITY = kinematic_viscosity
-        self.REYNOLDS_NUMBER = reynolds
-
-
-
-        print(self.RHO)
-        print(self.KINEMATIC_VISCOSITY)
-        print(self.REYNOLDS_NUMBER)
+        cls.RHO = rho
+        cls.KINEMATIC_VISCOSITY = kinematic_viscosity
+        cls.REYNOLDS_NUMBER = inflow_vel*ny/kinematic_viscosity
+        cls.NX = nx
+        cls.NY = ny
+        cls.MAX_HORIZONTAL_INFLOW_VELOCITY = inflow_vel
+        cls.RELAXATION_OMEGA = 1.0 / (3.0 * kinematic_viscosity + 0.5)
 
 
-        print("Omega: ", self.RELAXATION_OMEGA)
+        print("Omega: ", cls.RELAXATION_OMEGA)
+        print("Omega should be 0.5<=omega<1.5")
+        print("Reynolds: ", cls.REYNOLDS_NUMBER)
 
         response = input("Do You Want To Continue? [y/n]").lower().strip()
         if response != 'y':
             print("Exiting program")
             exit()
-
-
+        return cls
 
     @staticmethod
     def get_density(discrete_velocities):
@@ -182,6 +183,9 @@ class LBMFlowSolver:
         with h5py.File('data.hdf5', 'w') as raw:
             raw_group = raw.create_group('raw_data')
             vel_group = raw.create_group('vel_data')
+            mask_group = raw.create_group('mask_data')
+            mask_group.create_dataset('mask_data',data=self.mask)
+
 
             for iteration_idx in tqdm(range(self.N_ITERATIONS)):
                 # If it's the first iteration or the current iteration is a multiple of SAVE_N_STEPS_TRUE,
@@ -230,15 +234,15 @@ class LBMFlowSolver:
             ord=2,
         )
 
-        d_u__d_x, d_u__d_y = jnp.gradient(macroscopic_velocities[..., 0])
-        d_v__d_x, d_v__d_y = jnp.gradient(macroscopic_velocities[..., 1])
-
-        curl = (d_u__d_y - d_v__d_x)
+        # d_u__d_x, d_u__d_y = jnp.gradient(macroscopic_velocities[..., 0])
+        # d_v__d_x, d_v__d_y = jnp.gradient(macroscopic_velocities[..., 1])
+        #
+        # curl = (d_u__d_y - d_v__d_x)
 
         X_masked = self.X[self.mask]
         Y_masked = self.Y[self.mask]
 
-        plt.subplot(211)
+        plt.subplot()
         plt.contourf(
             self.X,
             self.Y,
@@ -254,24 +258,24 @@ class LBMFlowSolver:
         )
         plt.colorbar().set_label("Velocity Magnitude")
 
-        plt.subplot(212)
-        plt.contourf(
-            self.X,
-            self.Y,
-            curl,
-            levels=50,
-            vmin=-0.02,
-            vmax=0.02,
-            cmap=cmr.eclipse
-        )
-        plt.scatter(
-            X_masked,
-            Y_masked,
-            c='#339C4D',  # adjust color as needed
-            s=10,  # adjust size as needed
-        )
-        plt.colorbar().set_label("Vorticity Magnitude")
-        plt.rcParams["figure.figsize"] = (10, 3)
+        # plt.subplot(212)
+        # plt.contourf(
+        #     self.X,
+        #     self.Y,
+        #     curl,
+        #     levels=50,
+        #     vmin=-0.02,
+        #     vmax=0.02,
+        #     cmap=cmr.eclipse
+        # )
+        # plt.scatter(
+        #     X_masked,
+        #     Y_masked,
+        #     c='#339C4D',  # adjust color as needed
+        #     s=10,  # adjust size as needed
+        # )
+        # plt.colorbar().set_label("Vorticity Magnitude")
+        plt.rcParams["figure.figsize"] = (10, 5)
 
         #plt.subplot(313)
         #plt.plot(self.y[1:(self.NY - 1)], velocity_magnitude[self.NX // 2, 1:-1])
@@ -316,6 +320,7 @@ class LBMFlowSolver:
         ani.save('animation.mp4', writer=writer)
         file.close()
     def run_simulation(self):
+
         self.run(self.get_equilibrium_velocities(self.velocity_profile, jnp.ones((self.NX, self.NY))))
         if self.ANIMATE:
             self.animate()

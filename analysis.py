@@ -1,5 +1,8 @@
 import h5py
 import numpy as np
+from domain import label_islands,visualize_labeled_matrix
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 def compare_entrance_length(file_path, group_name, threshold,D, rho, mu):
     # Open the HDF5 file
@@ -49,3 +52,99 @@ def compare_entrance_length(file_path, group_name, threshold,D, rho, mu):
     # If no entrance length was found, return a sentinel value
     return -1, -1
 
+
+def calculate_center(label_positions):
+    centroids = {}
+
+    for key, value in label_positions.items():
+        x, y = zip(*value)
+        centroids[key] = (np.mean(x), np.mean(y))
+
+    return centroids
+
+def calculate_node_forces(file_path):
+    with h5py.File(file_path, 'r') as f:
+        group = f["raw_data"]
+        mask = f["mask_data"]['mask_data']
+        labeled_matrix, label_positions = label_islands(mask)
+
+        center_positions = calculate_center(label_positions)
+
+        c = [[0,0], [1,0], [0,1], [-1,0], [0,-1], [1,1], [-1,1], [-1,-1], [1,-1]]
+
+        forces_dict = {label: {'x':0, 'y':0} for label in label_positions.keys()}
+
+        # Get the names of all datasets in the group
+        dataset_names = list(group.keys())
+
+        # Sort the dataset names to ensure they are in order
+        dataset_names.sort()
+
+        # Get the name of the last dataset
+        last_dataset_name = dataset_names[-1]
+
+        # Get the velocity matrix from the group
+        raw_matrix = np.array(group[last_dataset_name])
+
+
+        nx, ny, _ = raw_matrix.shape
+
+        for x in range(nx):
+            for y in range(ny):
+                label = labeled_matrix[x][y]
+                if label != 0:  # It's an object node
+                    for i, ci in enumerate(c):
+                        neighbor_x = (x + ci[0]) % nx
+                        neighbor_y = (y + ci[1]) % ny
+                        if labeled_matrix[neighbor_x][neighbor_y] == 0:  # It's a fluid node
+                            rho_fluid = sum(raw_matrix[neighbor_x,neighbor_y,:])
+                            # Compute density of the fluid node by summing up all its distribution functions
+
+                            opposite_i = (i + 4) % 8
+                            delta_p_x = 2 * raw_matrix[neighbor_x, neighbor_y, opposite_i] * c[opposite_i][0]
+                            delta_p_y = 2 * raw_matrix[neighbor_x, neighbor_y, opposite_i] * c[opposite_i][1]
+                            forces_dict[label]['x'] += delta_p_x
+                            forces_dict[label]['y'] += delta_p_y
+
+        return forces_dict, center_positions, labeled_matrix
+
+
+def print_forces(forces_dict, center_positions, labeled_matrix):
+
+    centers_x = []
+    centers_y = []
+    total_forces_x = []
+    total_forces_y =[]
+
+    for key, value in center_positions.items():
+
+        centers_x.append(value[0])
+        centers_y.append(value[1])
+
+    for key,value in forces_dict.items():
+        total_forces_x.append(value['x'])
+        total_forces_y.append(value['y'])
+    centers_x = np.array(centers_x)
+    centers_y = np.array(centers_y)
+    total_forces_x = np.array(total_forces_x)
+    total_forces_y = np.array(total_forces_y)
+    nx, ny = np.array(labeled_matrix).shape
+
+
+    plt.figure(figsize=(10, 10))
+    plt.quiver(centers_x, centers_y, total_forces_x, total_forces_y, angles='xy', scale_units='xy', scale=0.3,
+               color='blue')
+
+
+    colors = ['#1E73DF'] + ['#9A9594'] * (max(forces_dict.keys()) + 1)
+    cmap = mcolors.ListedColormap(colors)
+    plt.imshow(labeled_matrix, alpha=1, cmap=cmap )  # Show islands as background
+    plt.xlim(0, nx)
+    plt.ylim(0, ny)
+    plt.title('Force Field for Islands')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.grid(True)
+    plt.show()
+forces_dict, center_positions, labeled_matrix = calculate_node_forces('data.hdf5')
+print_forces(forces_dict, center_positions, labeled_matrix)
