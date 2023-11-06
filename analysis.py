@@ -86,15 +86,10 @@ def calculate_node_forces(file_path):
         # Get the velocity matrix from the group
         raw_matrix = np.array(group[last_dataset_name])
 
-        ci = np.array(
-            [0, 1, 2, 3, 4, 5, 6, 7, 8]
-        )
-        cii = np.array(
-            [0, 3, 4, 1, 2, 7, 8, 5, 6]
-        )
-
-
         nx, ny, _ = raw_matrix.shape
+
+        c = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [-1, -1], [1, -1]]
+        c_inverse_index = [0, 3, 4, 1, 2, 7, 8, 5, 6]
 
         for x in range(nx):
             for y in range(ny):
@@ -104,23 +99,14 @@ def calculate_node_forces(file_path):
                         neighbor_x = (x + ci[0]) % nx
                         neighbor_y = (y + ci[1]) % ny
                         if labeled_matrix[neighbor_x][neighbor_y] == 0:  # It's a fluid node
-                            # For incoming populations
-                            neighbor_x_in = (x - ci[0]) % nx
-                            neighbor_y_in = (y - ci[1]) % ny
-                            if labeled_matrix[neighbor_x_in][neighbor_y_in] == 0:  # It's a fluid node
-                                p_x = raw_matrix[neighbor_x_in, neighbor_y_in, i] * ci[0]
-                                p_y = raw_matrix[neighbor_x_in, neighbor_y_in, i] * ci[1]
-                                forces_dict[label]['x'] += p_x
-                                forces_dict[label]['y'] += p_y
+                            #Get direction i
+                            directional_vector = np.array(c[c_inverse_index[i]])
 
-                            # For outgoing populations
-                            neighbor_x_out = (x + ci[0]) % nx
-                            neighbor_y_out = (y + ci[1]) % ny
-                            if labeled_matrix[neighbor_x_out][neighbor_y_out] == 0:  # It's a fluid node
-                                p_x = raw_matrix[neighbor_x_out, neighbor_y_out, i] * ci[0]
-                                p_y = raw_matrix[neighbor_x_out, neighbor_y_out, i] * ci[1]
-                                forces_dict[label]['x'] -= p_x  # Subtract because they are in the opposite direction
-                                forces_dict[label]['y'] -= p_y  # Subtract because they are in the opposite direction
+                            p_x,p_y = raw_matrix[neighbor_x][neighbor_y][c_inverse_index[i]] * directional_vector
+                            p_x_out, p_y_out = raw_matrix[x][y][i] * directional_vector
+
+                            forces_dict[label]['x'] += p_x - p_x_out
+                            forces_dict[label]['y'] += p_y - p_y_out
 
         return forces_dict, center_positions, labeled_matrix
 
@@ -148,7 +134,7 @@ def print_forces(forces_dict, center_positions, labeled_matrix):
 
 
     plt.figure(figsize=(10, 10))
-    plt.quiver(centers_x, centers_y, total_forces_x, total_forces_y, angles='xy', scale_units='xy', scale=0.01,
+    plt.quiver(centers_x, centers_y, total_forces_x, total_forces_y, angles='xy', scale_units='xy', scale=0.06,
                color='blue')
 
 
