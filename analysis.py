@@ -86,6 +86,13 @@ def calculate_node_forces(file_path):
         # Get the velocity matrix from the group
         raw_matrix = np.array(group[last_dataset_name])
 
+        ci = np.array(
+            [0, 1, 2, 3, 4, 5, 6, 7, 8]
+        )
+        cii = np.array(
+            [0, 3, 4, 1, 2, 7, 8, 5, 6]
+        )
+
 
         nx, ny, _ = raw_matrix.shape
 
@@ -97,14 +104,23 @@ def calculate_node_forces(file_path):
                         neighbor_x = (x + ci[0]) % nx
                         neighbor_y = (y + ci[1]) % ny
                         if labeled_matrix[neighbor_x][neighbor_y] == 0:  # It's a fluid node
-                            rho_fluid = sum(raw_matrix[neighbor_x,neighbor_y,:])
-                            # Compute density of the fluid node by summing up all its distribution functions
+                            # For incoming populations
+                            neighbor_x_in = (x - ci[0]) % nx
+                            neighbor_y_in = (y - ci[1]) % ny
+                            if labeled_matrix[neighbor_x_in][neighbor_y_in] == 0:  # It's a fluid node
+                                p_x = raw_matrix[neighbor_x_in, neighbor_y_in, i] * ci[0]
+                                p_y = raw_matrix[neighbor_x_in, neighbor_y_in, i] * ci[1]
+                                forces_dict[label]['x'] += p_x
+                                forces_dict[label]['y'] += p_y
 
-                            opposite_i = (i + 4) % 8
-                            delta_p_x = 2 * raw_matrix[neighbor_x, neighbor_y, opposite_i] * c[opposite_i][0]
-                            delta_p_y = 2 * raw_matrix[neighbor_x, neighbor_y, opposite_i] * c[opposite_i][1]
-                            forces_dict[label]['x'] += delta_p_x
-                            forces_dict[label]['y'] += delta_p_y
+                            # For outgoing populations
+                            neighbor_x_out = (x + ci[0]) % nx
+                            neighbor_y_out = (y + ci[1]) % ny
+                            if labeled_matrix[neighbor_x_out][neighbor_y_out] == 0:  # It's a fluid node
+                                p_x = raw_matrix[neighbor_x_out, neighbor_y_out, i] * ci[0]
+                                p_y = raw_matrix[neighbor_x_out, neighbor_y_out, i] * ci[1]
+                                forces_dict[label]['x'] -= p_x  # Subtract because they are in the opposite direction
+                                forces_dict[label]['y'] -= p_y  # Subtract because they are in the opposite direction
 
         return forces_dict, center_positions, labeled_matrix
 
@@ -132,7 +148,7 @@ def print_forces(forces_dict, center_positions, labeled_matrix):
 
 
     plt.figure(figsize=(10, 10))
-    plt.quiver(centers_x, centers_y, total_forces_x, total_forces_y, angles='xy', scale_units='xy', scale=0.3,
+    plt.quiver(centers_x, centers_y, total_forces_x, total_forces_y, angles='xy', scale_units='xy', scale=0.01,
                color='blue')
 
 

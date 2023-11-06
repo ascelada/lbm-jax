@@ -1,7 +1,14 @@
 import jax
 
 import jax.numpy as jnp
-
+@jax.jit
+def get_force(discrete_velocities):
+  return jnp.sum(
+                 (LATTICE_VELOCITIES.T[jnp.newaxis, jnp.newaxis, jnp.newaxis, ...] *
+                  discrete_velocities[..., jnp.newaxis])[MOMENTUM_EXCHANGE_MASK_IN] +
+                 (LATTICE_VELOCITIES.T[OPPOSITE_LATTICE_INDICES][jnp.newaxis, jnp.newaxis, jnp.newaxis, ...] *
+                  discrete_velocities[..., jnp.newaxis])[MOMENTUM_EXCHANGE_MASK_OUT],
+                 axis = 0)
 
 @jax.jit
 def collide(solver, discrete_velocities_prev, equilibrium_discrete_velocities):
