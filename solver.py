@@ -16,6 +16,7 @@ import porespy as ps
 @flax.struct.dataclass
 class LBMFlowSolver:
     jax.config.update("jax_enable_x64", True)
+
     N_DISCRETE_VELOCITIES = 9
     N_ITERATIONS = 15_000
     REYNOLDS_NUMBER = 80
@@ -61,6 +62,8 @@ class LBMFlowSolver:
     PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
     isPorous = True
     mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 12, spacing= 50, offset= 15))
+    acceleration_x = 0.0001
+    ACCELERATION_MASK = jnp.where(mask,0.0, acceleration_x)
     porosity = jnp.sum(mask)/(NX*NY)
     @classmethod
     def config(cls, rho,inflow_vel, kinematic_viscosity, nx, ny):
@@ -321,6 +324,6 @@ class LBMFlowSolver:
         file.close()
     def run_simulation(self):
 
-        self.run(self.get_equilibrium_velocities(self.velocity_profile, jnp.ones((self.NX, self.NY))))
+        self.run(self.get_equilibrium_velocities(jnp.zeros((self.NX, self.NY, 2)), jnp.ones((self.NX, self.NY))))
         if self.ANIMATE:
             self.animate()
