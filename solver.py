@@ -61,8 +61,8 @@ class LBMFlowSolver:
     PURE_VERTICAL_VELOCITIES = jnp.array([0, 2, 4])
     PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
     isPorous = True
-    mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 10, spacing= 32, offset= 10))
-    acceleration_x = 0.001
+    mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 10, spacing= 50, offset= 15))
+    acceleration_x = 0.0001
     ACCELERATION_MASK = jnp.where(mask,0.0, acceleration_x)
     porosity = ((NX*NY)-jnp.sum(mask))/(NX*NY)
     @classmethod
