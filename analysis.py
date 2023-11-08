@@ -148,5 +148,5 @@ def print_forces(forces_dict, center_positions, labeled_matrix):
     plt.ylabel('Y')
     plt.grid(True)
     plt.show()
-forces_dict, center_positions, labeled_matrix = calculate_node_forces('data.hdf5')
-print_forces(forces_dict, center_positions, labeled_matrix)
+# forces_dict, center_positions, labeled_matrix = calculate_node_forces('data.hdf5')
+# print_forces(forces_dict, center_positions, labeled_matrix)

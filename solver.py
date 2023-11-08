@@ -61,10 +61,10 @@ class LBMFlowSolver:
     PURE_VERTICAL_VELOCITIES = jnp.array([0, 2, 4])
     PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
     isPorous = True
-    mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 12, spacing= 50, offset= 15))
-    acceleration_x = 0.0001
+    mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 10, spacing= 32, offset= 10))
+    acceleration_x = 0.001
     ACCELERATION_MASK = jnp.where(mask,0.0, acceleration_x)
-    porosity = jnp.sum(mask)/(NX*NY)
+    porosity = ((NX*NY)-jnp.sum(mask))/(NX*NY)
     @classmethod
     def config(cls, rho,inflow_vel, kinematic_viscosity, nx, ny):
 
@@ -245,21 +245,32 @@ class LBMFlowSolver:
         X_masked = self.X[self.mask]
         Y_masked = self.Y[self.mask]
 
-        plt.subplot()
-        plt.contourf(
-            self.X,
-            self.Y,
-            velocity_magnitude,
-            cmap=cmr.lavender,
-            levels=50,
-        )
+        # plt.subplot()
+        # plt.contourf(
+        #     self.X,
+        #     self.Y,
+        #     velocity_magnitude,
+        #     cmap=cmr.lavender,
+        #     levels=50,
+        # )
+
+
+        fig = plt.figure(figsize=(10, 8))
+        plt.contourf(self.X, self.Y, velocity_magnitude,
+                            levels = 50, cmap=cmr.lavender)
+
         plt.scatter(
             X_masked,
             Y_masked,
-            c='#C3c932',
-            s=10,
+            c='#999999',
+            s=1,
+            alpha=0.5
+
         )
+        # plt.axis('scaled')
         plt.colorbar().set_label("Velocity Magnitude")
+        # plt.axis('off')
+        plt.show()
 
         # plt.subplot(212)
         # plt.contourf(
@@ -278,14 +289,14 @@ class LBMFlowSolver:
         #     s=10,  # adjust size as needed
         # )
         # plt.colorbar().set_label("Vorticity Magnitude")
-        plt.rcParams["figure.figsize"] = (10, 5)
-
-        #plt.subplot(313)
-        #plt.plot(self.y[1:(self.NY - 1)], velocity_magnitude[self.NX // 2, 1:-1])
-        plt.draw()
-        plt.pause(0.0001)
-        plt.clf()
-        plt.show()
+        # plt.rcParams["figure.figsize"] = (8, 5)
+        #
+        # #plt.subplot(313)
+        # #plt.plot(self.y[1:(self.NY - 1)], velocity_magnitude[self.NX // 2, 1:-1])
+        # plt.draw()
+        # plt.pause(0.0001)
+        # plt.clf()
+        # plt.show()
     def find_entrance_length(self,velocity_matrix, threshold):
         # Iterate over the rows in the velocity matrix
         for i, velocity_profile in enumerate(velocity_matrix):
