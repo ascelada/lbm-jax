@@ -11,12 +11,15 @@ def generate_lattice_spheres(r, nx, ny, bed_value):
     o = 1.25 * r
     s = 3.75 * r
 
-    im = ~ps.generators.lattice_spheres(shape=shape, r=r, spacing=s, offset=o, lattice='tri')
-    matrix = jnp.array(im)
+    im = ps.generators.rsa(im_or_shape=shape, r=r, clearance=1)
+    NX,NY = shape
+    matrix = np.array(im)
+    porosity = ((NX*NY)-np.sum(im))/(NX*NY)
+    print(porosity)
     print(matrix.shape)
-    teste = jnp.full([nx, int((1-bed_value)*ny)], False)
+    teste = np.full([nx, int((1-bed_value)*ny)], False)
 
-    matrix = jnp.hstack((matrix, teste))
+    matrix = np.hstack((matrix,teste))
     return matrix
 
 def label_islands(matrix):

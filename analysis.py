@@ -1,8 +1,15 @@
+import statistics
+
 import h5py
 import numpy as np
 from domain import label_islands,visualize_labeled_matrix
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from solver import  LBMFlowSolver
+import jax.numpy as jnp
+import cmasher as cmr
+
+from scipy.interpolate import griddata
 
 def compare_entrance_length(file_path, group_name, threshold,D, rho, mu):
     # Open the HDF5 file
@@ -148,5 +155,65 @@ def print_forces(forces_dict, center_positions, labeled_matrix):
     plt.ylabel('Y')
     plt.grid(True)
     plt.show()
-# forces_dict, center_positions, labeled_matrix = calculate_node_forces('data.hdf5')
+
+def calculate_statistics(forces_dict):
+    x_values = [force["x"] for force in forces_dict.values()]
+    y_values = [force["y"] for force in forces_dict.values()]
+
+    mean_x = statistics.mean(x_values)
+    mean_y = statistics.mean(y_values)
+
+    std_dev_x = statistics.stdev(x_values)
+    std_dev_y = statistics.stdev(y_values)
+    print("Mean X:", mean_x)
+    print("Mean Y:", mean_y)
+    print("Standard Deviation X:", std_dev_x)
+    print("Standard Deviation Y:", std_dev_y)
+
+    z_scores_x = [(x - mean_x) / std_dev_x for x in x_values]
+
+    # Calculate z-scores for y values
+    z_scores_y = [(y - mean_y) / std_dev_y for y in y_values]
+
+    # You can print these scores or analyze them further as needed
+    print("Z-Scores for X values:", z_scores_x)
+    print("Z-Scores for Y values:", z_scores_y)
+
+
+# def plot_stream(file_path):
+#     solver = LBMFlowSolver()
+#     with h5py.File(file_path, 'r') as f:
+#         group = f["raw_data"]
+#         mask = jnp.array(f["mask_data"]['mask_data'])
+#
+#         dataset_names = list(group.keys())
+#
+#         # Sort the dataset names to ensure they are in order
+#         dataset_names.sort()
+#
+#         # Get the name of the last dataset
+#         last_dataset_name = dataset_names[-1]
+#
+#         # Get the velocity matrix from the group
+#         raw_matrix = jnp.array(group[last_dataset_name])
+#         density = solver.get_density(raw_matrix)
+#         velocity_field = solver.get_macroscopic_velocities(solver, raw_matrix,density)
+#         velocity_magnitude = jnp.linalg.norm(
+#             velocity_field,
+#             axis=-1,
+#             ord=2,
+#         )
+#
+#         # Creating a meshgrid for plotting
+#         X,Y = velocity_magnitude.shape
+#
+#         plt.contourf(X, Y, velocity_field,
+#                      levels=50, cmap=cmr.lavender)
+#
+#         plt.title("Enhanced Streamlines in LBM Simulation")
+#         plt.xlabel('X')
+#         plt.ylabel('Y')
+#         plt.show()
+
+# plot_stream('data.hdf5')
 # print_forces(forces_dict, center_positions, labeled_matrix)

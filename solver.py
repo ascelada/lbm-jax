@@ -22,7 +22,7 @@ class LBMFlowSolver:
     REYNOLDS_NUMBER = 80
     DIAMETER = 1
     NX = 500
-    NY = 500
+    NY = 800
     MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
     SAVE_N_STEPS_TRUE = 1000
     PLOT_N_STEPS_TRUE = 500
@@ -61,9 +61,14 @@ class LBMFlowSolver:
     PURE_VERTICAL_VELOCITIES = jnp.array([0, 2, 4])
     PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
     isPorous = True
-    mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 10, spacing= 50, offset= 15))
-    acceleration_x = 0.0001
+    # mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 14, spacing= 50, offset= 14))
+    mask = jnp.flipud(generate_lattice_spheres(12,NX,NY,0.2))
+    mask.at[:, 0].set(True)
+    mask.at[:,-1].set(True)
+    acceleration_x = 0.00001
+    acceleration_y = -0.001
     ACCELERATION_MASK = jnp.where(mask,0.0, acceleration_x)
+    ACCELERATION_MASK_Y = jnp.where(mask, 0.0, acceleration_y)
     porosity = ((NX*NY)-jnp.sum(mask))/(NX*NY)
     @classmethod
     def config(cls, rho,inflow_vel, kinematic_viscosity, nx, ny):
@@ -99,11 +104,12 @@ class LBMFlowSolver:
         density = jnp.sum(discrete_velocities, axis=-1)  # sum along the last axis
         return density
 
-    def get_macroscopic_velocities(self, discrete_velocities, density):
+    def get_macroscopic_velocities(self,discrete_velocities, density):
         """
         Calculates the macroscopic velocities for each grid cell (x, y) by taking a weighted sum of the discrete velocities
         and dividing by the total density.
 
+        :param self:
         :param discrete_velocities: Discrete velocities for each direction. Shape: (NX, NY, N_DISCRETE_VELOCITIES)
         :param density: Density of the fluid. Shape: (NX, NY)
         :return: Macroscopic velocities of the fluid. Shape: (NX, NY, 2)
@@ -264,7 +270,7 @@ class LBMFlowSolver:
             Y_masked,
             c='#999999',
             s=1,
-            alpha=0.5
+            alpha=0.8
 
         )
         # plt.axis('scaled')
@@ -297,14 +303,6 @@ class LBMFlowSolver:
         # plt.pause(0.0001)
         # plt.clf()
         # plt.show()
-    def find_entrance_length(self,velocity_matrix, threshold):
-        # Iterate over the rows in the velocity matrix
-        for i, velocity_profile in enumerate(velocity_matrix):
-            # If the standard deviation of the velocities is below the threshold, return the index
-            if jnp.std(velocity_profile) < threshold:
-                return i
-        # If no entrance length was found, return a sentinel value
-        return -1
     def animate(self):
         file = h5py.File('data.hdf5', 'r')
         g1 = file.get('vel_data')

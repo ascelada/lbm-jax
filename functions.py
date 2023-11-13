@@ -46,6 +46,7 @@ def update(solver, discrete_velocities_prev):
     density_prev = solver.get_density(discrete_velocities_prev)
     macroscopic_velocities_prev = solver.get_macroscopic_velocities(discrete_velocities_prev, density_prev)
     macroscopic_velocities_prev = macroscopic_velocities_prev.at[:,:,0].add(solver.ACCELERATION_MASK)
+    macroscopic_velocities_prev = macroscopic_velocities_prev.at[:,:,1].add(solver.ACCELERATION_MASK_Y)
 
     # Calculate equilibrium
     equilibrium_discrete_velocities = solver.get_equilibrium_velocities(macroscopic_velocities_prev, density_prev)
