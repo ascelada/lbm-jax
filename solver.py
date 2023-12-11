@@ -62,13 +62,11 @@ class LBMFlowSolver:
     PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
     isPorous = True
     # mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 14, spacing= 50, offset= 14))
-    mask = jnp.flipud(generate_lattice_spheres(12,NX,NY,0.2))
+    mask = jnp.flipud(generate_lattice_spheres(12,NX,NY,0.5, volume_fraction=0.3))
     mask.at[:, 0].set(True)
     mask.at[:,-1].set(True)
     acceleration_x = 0.00001
-    acceleration_y = -0.001
     ACCELERATION_MASK = jnp.where(mask,0.0, acceleration_x)
-    ACCELERATION_MASK_Y = jnp.where(mask, 0.0, acceleration_y)
     porosity = ((NX*NY)-jnp.sum(mask))/(NX*NY)
     @classmethod
     def config(cls, rho,inflow_vel, kinematic_viscosity, nx, ny):

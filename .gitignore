@@ -2,3 +2,4 @@
 /.idea
 animation.mp4
 data.hdf5
+*.npy
