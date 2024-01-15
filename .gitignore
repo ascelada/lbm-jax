@@ -1,5 +1,6 @@
 /venv
 /.idea
+/data
 animation.mp4
-data.hdf5
+*.hdf5
 *.npy

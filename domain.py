@@ -16,8 +16,6 @@ def generate_lattice_spheres(r, nx, ny, bed_value, volume_fraction=1):
     NX,NY = shape
     matrix = np.array(im)
     porosity = ((NX*NY)-np.sum(im))/(NX*NY)
-    print(porosity)
-    print(matrix.shape)
     teste = np.full([nx, int((1-bed_value)*ny)], False)
 
     matrix = np.hstack((matrix,teste))
@@ -40,9 +38,7 @@ def label_islands(matrix):
                 label_positions[label].append((x, y))
                 for nx, ny in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]:
                     stack.append((nx, ny))
-    print(rows)
     for i in range(rows):
-        print(i)
         for j in range(cols):
             if matrix[i][j] and labels[i][j] == 0:
                 current_label += 1  # Increment label for a new island

@@ -10,56 +10,6 @@ import jax.numpy as jnp
 import cmasher as cmr
 
 from scipy.interpolate import griddata
-
-def compare_entrance_length(file_path, group_name, threshold,D, rho, mu):
-    # Open the HDF5 file
-
-
-    with h5py.File(file_path, 'r') as f:
-        # Access the group containing the datasets
-        group = f[group_name]
-
-        # Get the names of all datasets in the group
-        dataset_names = list(group.keys())
-
-
-        # Sort the dataset names to ensure they are in order
-        dataset_names.sort()
-
-        # Get the name of the last dataset
-        last_dataset_name = dataset_names[-1]
-
-        # Get the velocity matrix from the group
-        velocity_matrix = np.array(group[last_dataset_name])
-
-        # Ensure the data is a float type
-        velocity_matrix = velocity_matrix.astype(float)
-
-        print(velocity_matrix)
-
-        # Calculate mean entrance velocity to calculate Re
-        u_mean_entrance = np.mean(velocity_matrix[0])
-
-        # Calculate Reynolds number at the entrance
-        Re_entrance = rho * u_mean_entrance * D / mu
-
-        # Calculate analytical entrance length based on the entrance Reynolds number
-        Le_analytical = 0.06 * Re_entrance * D
-
-
-
-        # Iterate over the rows in the velocity_matrix to find the numerical entrance length
-        for i, velocity_profile in enumerate(velocity_matrix):
-            # If the standard deviation of the velocities is below the threshold, return the index (numerical entrance length)
-            if np.std(velocity_profile) < threshold:
-                # Calculate numerical entrance length (assuming axial increments of 1)
-                Le_numerical = i * D
-                return Le_numerical, Le_analytical
-
-    # If no entrance length was found, return a sentinel value
-    return -1, -1
-
-
 def calculate_center(label_positions):
     centroids = {}
 
@@ -94,6 +44,7 @@ def calculate_node_forces(file_path):
         raw_matrix = np.array(group[last_dataset_name])
 
         nx, ny, _ = raw_matrix.shape
+        print(nx,ny)
 
         c = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [-1, -1], [1, -1]]
         c_inverse_index = [0, 3, 4, 1, 2, 7, 8, 5, 6]
@@ -140,21 +91,19 @@ def print_forces(forces_dict, center_positions, labeled_matrix):
     nx, ny = np.array(labeled_matrix).shape
 
 
-    plt.figure(figsize=(10, 10))
-    plt.quiver(centers_x, centers_y, total_forces_x, total_forces_y, angles='xy', scale_units='xy', scale=0.06,
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
+    ax.quiver(centers_x, centers_y, total_forces_x, total_forces_y, angles='xy', scale_units='xy', scale=0.01,
                color='blue')
 
 
     colors = ['#1E73DF'] + ['#9A9594'] * (max(forces_dict.keys()) + 1)
     cmap = mcolors.ListedColormap(colors)
-    plt.imshow(labeled_matrix, alpha=1, cmap=cmap )  # Show islands as background
-    plt.xlim(0, nx)
-    plt.ylim(0, ny)
-    plt.title('Force Field for Islands')
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.grid(True)
-    plt.show()
+    ax.imshow(np.array(labeled_matrix).T, alpha=1, cmap=cmap )  # Show islands as background
+    ax.set_title('Force Field for Islands')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    return fig
 
 def calculate_statistics(forces_dict):
     x_values = [force["x"] for force in forces_dict.values()]
@@ -178,42 +127,3 @@ def calculate_statistics(forces_dict):
     # You can print these scores or analyze them further as needed
     print("Z-Scores for X values:", z_scores_x)
     print("Z-Scores for Y values:", z_scores_y)
-
-
-# def plot_stream(file_path):
-#     solver = LBMFlowSolver()
-#     with h5py.File(file_path, 'r') as f:
-#         group = f["raw_data"]
-#         mask = jnp.array(f["mask_data"]['mask_data'])
-#
-#         dataset_names = list(group.keys())
-#
-#         # Sort the dataset names to ensure they are in order
-#         dataset_names.sort()
-#
-#         # Get the name of the last dataset
-#         last_dataset_name = dataset_names[-1]
-#
-#         # Get the velocity matrix from the group
-#         raw_matrix = jnp.array(group[last_dataset_name])
-#         density = solver.get_density(raw_matrix)
-#         velocity_field = solver.get_macroscopic_velocities(solver, raw_matrix,density)
-#         velocity_magnitude = jnp.linalg.norm(
-#             velocity_field,
-#             axis=-1,
-#             ord=2,
-#         )
-#
-#         # Creating a meshgrid for plotting
-#         X,Y = velocity_magnitude.shape
-#
-#         plt.contourf(X, Y, velocity_field,
-#                      levels=50, cmap=cmr.lavender)
-#
-#         plt.title("Enhanced Streamlines in LBM Simulation")
-#         plt.xlabel('X')
-#         plt.ylabel('Y')
-#         plt.show()
-
-# plot_stream('data.hdf5')
-# print_forces(forces_dict, center_positions, labeled_matrix)

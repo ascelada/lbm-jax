@@ -69,26 +69,69 @@ class LBMFlowSolver:
     ACCELERATION_MASK = jnp.where(mask,0.0, acceleration_x)
     porosity = ((NX*NY)-jnp.sum(mask))/(NX*NY)
     @classmethod
-    def config(cls, rho,inflow_vel, kinematic_viscosity, nx, ny):
+    def config(cls, domain):
 
-        cls.RHO = rho
-        cls.KINEMATIC_VISCOSITY = kinematic_viscosity
-        cls.REYNOLDS_NUMBER = inflow_vel*ny/kinematic_viscosity
-        cls.NX = nx
-        cls.NY = ny
-        cls.MAX_HORIZONTAL_INFLOW_VELOCITY = inflow_vel
-        cls.RELAXATION_OMEGA = 1.0 / (3.0 * kinematic_viscosity + 0.5)
+        cls.N_DISCRETE_VELOCITIES = 9
+        cls.N_ITERATIONS = 15_000
+        cls.REYNOLDS_NUMBER = 80
+        cls.DIAMETER = 1
 
+        cls.MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
+        cls.SAVE_N_STEPS_TRUE = 1000
+        cls.PLOT_N_STEPS_TRUE = 500
+        cls.ANIMATE = False
+        cls.SKIP_FIRST_N_ITERATIONS = 0
+        cls.VISUALIZE = True
+        cls.KINEMATIC_VISCOSITY = 0.01
+        cls.RHO = 1
+        cls.RELAXATION_OMEGA = 1.0 / (3.0 * cls.KINEMATIC_VISCOSITY + 0.5)
+        cls.NX, cls.NY = domain.shape
 
-        print("Omega: ", cls.RELAXATION_OMEGA)
-        print("Omega should be 0.5<=omega<1.5")
-        print("Reynolds: ", cls.REYNOLDS_NUMBER)
+        cls.NY = cls.NY*2
 
-        response = input("Do You Want To Continue? [y/n]").lower().strip()
-        if response != 'y':
-            print("Exiting program")
-            exit()
-        return cls
+        print(cls.NX,cls.NY)
+        cls.mask = jnp.array(domain)
+        upper = jnp.full([cls.NX, int((1 - 0.5) * cls.NY)], False)
+        cls.mask = jnp.hstack((domain, upper))
+        cls.mask.at[:, 0].set(True)
+        cls.mask.at[:, -1].set(True)
+        cls.NX, cls.NY = cls.mask.shape
+        cls.velocity_profile = jnp.zeros((cls.NX, cls.NY, 2))
+        cls.velocity_profile = cls.velocity_profile.at[:, :, 0].set(cls.MAX_HORIZONTAL_INFLOW_VELOCITY)
+        cls.x = jnp.arange(cls.NX)
+        cls.y = jnp.arange(cls.NY)
+        cls.X, cls.Y = jnp.meshgrid(cls.x, cls.y, indexing="ij")
+        cls.LATTICE_VELOCITIES_X = jnp.array([0, 1, 0, -1, 0, 1, -1, -1, 1, ])
+        cls.LATTICE_VELOCITIES_Y = jnp.array([0, 0, 1, 0, -1, 1, 1, -1, -1, ])
+        cls.LATTICE_VELOCITIES = jnp.array([
+            cls.LATTICE_VELOCITIES_X,
+            cls.LATTICE_VELOCITIES_Y, ]
+        )
+        cls.LATTICE_INDICES = jnp.array(
+            [0, 1, 2, 3, 4, 5, 6, 7, 8]
+        )
+        cls.OPPOSITE_LATTICE_INDICES = jnp.array(
+            [0, 3, 4, 1, 2, 7, 8, 5, 6]
+        )
+        cls.LATTICE_WEIGHTS = jnp.array([
+            4 / 9,
+            1 / 9, 1 / 9, 1 / 9, 1 / 9,
+            1 / 36, 1 / 36, 1 / 36, 1 / 36
+        ])
+        cls.RIGHT_VELOCITIES = jnp.array([1, 5, 8])
+        cls.UP_VELOCITIES = jnp.array([2, 5, 6])
+        cls.LEFT_VELOCITIES = jnp.array([3, 6, 7])
+        cls.DOWN_VELOCITIES = jnp.array([4, 7, 8])
+        cls.PURE_VERTICAL_VELOCITIES = jnp.array([0, 2, 4])
+        cls.PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
+        cls.isPorous = True
+        # mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 14, spacing= 50, offset= 14))
+
+        cls.acceleration_x = 0.00000001
+        cls.ACCELERATION_MASK = jnp.where(cls.mask, 0.0, cls.acceleration_x)
+        cls.porosity = ((cls.NX * cls.NY) - jnp.sum(cls.mask)) / (cls.NX * cls.NY)
+
+        return cls()
 
     @staticmethod
     def get_density(discrete_velocities):
@@ -101,7 +144,6 @@ class LBMFlowSolver:
 
         density = jnp.sum(discrete_velocities, axis=-1)  # sum along the last axis
         return density
-
     def get_macroscopic_velocities(self,discrete_velocities, density):
         """
         Calculates the macroscopic velocities for each grid cell (x, y) by taking a weighted sum of the discrete velocities
@@ -187,7 +229,7 @@ class LBMFlowSolver:
 
 
     def run(self, discrete_velocities_prev):
-        with h5py.File('data.hdf5', 'w') as raw:
+        with h5py.File('data5_3.hdf5', 'w') as raw:
             raw_group = raw.create_group('raw_data')
             vel_group = raw.create_group('vel_data')
             mask_group = raw.create_group('mask_data')
@@ -302,7 +344,7 @@ class LBMFlowSolver:
         # plt.clf()
         # plt.show()
     def animate(self):
-        file = h5py.File('data.hdf5', 'r')
+        file = h5py.File('data1_1.hdf5', 'r')
         g1 = file.get('vel_data')
 
         fig, ax = plt.subplots()
@@ -330,7 +372,6 @@ class LBMFlowSolver:
         ani.save('animation.mp4', writer=writer)
         file.close()
     def run_simulation(self):
-
         self.run(self.get_equilibrium_velocities(jnp.zeros((self.NX, self.NY, 2)), jnp.ones((self.NX, self.NY))))
         if self.ANIMATE:
             self.animate()
