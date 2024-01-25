@@ -1,6 +1,6 @@
 import jax
-
 import jax.numpy as jnp
+
 
 @jax.jit
 def collide(solver, discrete_velocities_prev, equilibrium_discrete_velocities):
@@ -41,11 +41,10 @@ def stream(solver, discrete_velocities_post_collision):
 
 @jax.jit
 def update(solver, discrete_velocities_prev):
-
     # Calculate macroscopic velocities
     density_prev = solver.get_density(discrete_velocities_prev)
     macroscopic_velocities_prev = solver.get_macroscopic_velocities(discrete_velocities_prev, density_prev)
-    macroscopic_velocities_prev = macroscopic_velocities_prev.at[:,:,0].add(solver.ACCELERATION_MASK)
+    macroscopic_velocities_prev = macroscopic_velocities_prev.at[:, :, 0].add(solver.ACCELERATION_MASK)
 
     # Calculate equilibrium
     equilibrium_discrete_velocities = solver.get_equilibrium_velocities(macroscopic_velocities_prev, density_prev)
@@ -54,6 +53,6 @@ def update(solver, discrete_velocities_prev):
     discrete_velocities_post_collision = collide(solver, discrete_velocities_prev, equilibrium_discrete_velocities)
 
     # Stream
-    discrete_velocities_streamed = stream(solver,discrete_velocities_post_collision)
+    discrete_velocities_streamed = stream(solver, discrete_velocities_post_collision)
 
     return discrete_velocities_streamed

@@ -1,73 +1,30 @@
+import cmasher as cmr
 import flax as flax
 import h5py
-import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import cmasher as cmr
 import numpy as np
 from matplotlib import animation
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 
 from functions import update
-from domain import generate_lattice_spheres
 
-import porespy as ps
+
 @flax.struct.dataclass
 class LBMFlowSolver:
-    jax.config.update("jax_enable_x64", True)
+    acceleration_x = None
+    LATTICE_VELOCITIES_Y = None
+    LATTICE_VELOCITIES_X = None
+    y = None
+    x = None
+    MAX_HORIZONTAL_INFLOW_VELOCITY = None
+    velocity_profile = None
+    mask = None
+    NX = None
+    NY = None
+    KINEMATIC_VISCOSITY = None
 
-    N_DISCRETE_VELOCITIES = 9
-    N_ITERATIONS = 15_000
-    REYNOLDS_NUMBER = 80
-    DIAMETER = 1
-    NX = 500
-    NY = 800
-    MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
-    SAVE_N_STEPS_TRUE = 1000
-    PLOT_N_STEPS_TRUE = 500
-    ANIMATE = False
-    SKIP_FIRST_N_ITERATIONS = 0
-    VISUALIZE = True
-    KINEMATIC_VISCOSITY = 0.01
-    RHO = 1
-    RELAXATION_OMEGA = 1.0 / (3.0 * KINEMATIC_VISCOSITY + 0.5)
-    velocity_profile = jnp.zeros((NX, NY, 2))
-    velocity_profile = velocity_profile.at[:, :, 0].set(MAX_HORIZONTAL_INFLOW_VELOCITY)
-    x = jnp.arange(NX)
-    y = jnp.arange(NY)
-    X, Y = jnp.meshgrid(x, y, indexing="ij")
-    LATTICE_VELOCITIES_X = jnp.array([0, 1, 0, -1, 0, 1, -1, -1, 1, ])
-    LATTICE_VELOCITIES_Y = jnp.array([0, 0, 1, 0, -1, 1, 1, -1, -1, ])
-    LATTICE_VELOCITIES = jnp.array([
-        LATTICE_VELOCITIES_X,
-        LATTICE_VELOCITIES_Y, ]
-    )
-    LATTICE_INDICES = jnp.array(
-        [0, 1, 2, 3, 4, 5, 6, 7, 8]
-    )
-    OPPOSITE_LATTICE_INDICES = jnp.array(
-        [0, 3, 4, 1, 2, 7, 8, 5, 6]
-    )
-    LATTICE_WEIGHTS = jnp.array([
-        4 / 9,
-        1 / 9, 1 / 9, 1 / 9, 1 / 9,
-        1 / 36, 1 / 36, 1 / 36, 1 / 36
-    ])
-    RIGHT_VELOCITIES = jnp.array([1, 5, 8])
-    UP_VELOCITIES = jnp.array([2, 5, 6])
-    LEFT_VELOCITIES = jnp.array([3, 6, 7])
-    DOWN_VELOCITIES = jnp.array([4, 7, 8])
-    PURE_VERTICAL_VELOCITIES = jnp.array([0, 2, 4])
-    PURE_HORIZONTAL_VELOCITIES = jnp.array([0, 1, 3])
-    isPorous = True
-    # mask = jnp.array(~ps.generators.lattice_spheres(shape=[NX, NY],lattice="tri",r= 14, spacing= 50, offset= 14))
-    mask = jnp.flipud(generate_lattice_spheres(12,NX,NY,0.5, volume_fraction=0.3))
-    mask.at[:, 0].set(True)
-    mask.at[:,-1].set(True)
-    acceleration_x = 0.00001
-    ACCELERATION_MASK = jnp.where(mask,0.0, acceleration_x)
-    porosity = ((NX*NY)-jnp.sum(mask))/(NX*NY)
     @classmethod
     def config(cls, domain):
 
@@ -75,7 +32,6 @@ class LBMFlowSolver:
         cls.N_ITERATIONS = 15_000
         cls.REYNOLDS_NUMBER = 80
         cls.DIAMETER = 1
-
         cls.MAX_HORIZONTAL_INFLOW_VELOCITY = 0.04
         cls.SAVE_N_STEPS_TRUE = 1000
         cls.PLOT_N_STEPS_TRUE = 500
@@ -86,10 +42,7 @@ class LBMFlowSolver:
         cls.RHO = 1
         cls.RELAXATION_OMEGA = 1.0 / (3.0 * cls.KINEMATIC_VISCOSITY + 0.5)
         cls.NX, cls.NY = domain.shape
-
-        cls.NY = cls.NY*2
-
-        print(cls.NX,cls.NY)
+        cls.NY = cls.NY * 2
         cls.mask = jnp.array(domain)
         upper = jnp.full([cls.NX, int((1 - 0.5) * cls.NY)], False)
         cls.mask = jnp.hstack((domain, upper))
@@ -144,7 +97,8 @@ class LBMFlowSolver:
 
         density = jnp.sum(discrete_velocities, axis=-1)  # sum along the last axis
         return density
-    def get_macroscopic_velocities(self,discrete_velocities, density):
+
+    def get_macroscopic_velocities(self, discrete_velocities, density):
         """
         Calculates the macroscopic velocities for each grid cell (x, y) by taking a weighted sum of the discrete velocities
         and dividing by the total density.
@@ -161,7 +115,7 @@ class LBMFlowSolver:
         ) / density[..., jnp.newaxis]
         return macroscopic_velocities
 
-    def get_equilibrium_velocities(self,macroscopic_velocities, density):
+    def get_equilibrium_velocities(self, macroscopic_velocities, density):
         """
         Calculates the equilibrium discrete velocities for each grid cell (x, y) based on the macroscopic velocities
         and total density. The equilibrium discrete velocities are derived from the equilibrium distribution function,
@@ -227,14 +181,12 @@ class LBMFlowSolver:
         velocity_magnitude = jnp.sqrt(velocity_magnitude_sq)
         return velocity_magnitude
 
-
     def run(self, discrete_velocities_prev):
         with h5py.File('data5_3.hdf5', 'w') as raw:
             raw_group = raw.create_group('raw_data')
             vel_group = raw.create_group('vel_data')
             mask_group = raw.create_group('mask_data')
-            mask_group.create_dataset('mask_data',data=self.mask)
-
+            mask_group.create_dataset('mask_data', data=self.mask)
 
             for iteration_idx in tqdm(range(self.N_ITERATIONS)):
                 # If it's the first iteration or the current iteration is a multiple of SAVE_N_STEPS_TRUE,
@@ -254,7 +206,7 @@ class LBMFlowSolver:
                                              compression_opts=5)
 
                 # Perform an update step in the simulation
-                discrete_velocities_next = update(self,discrete_velocities_prev)
+                discrete_velocities_next = update(self, discrete_velocities_prev)
                 discrete_velocities_prev = discrete_velocities_next
 
                 # If the current iteration is a multiple of PLOT_N_STEPS_TRUE, and the iteration is higher than SKIP_FIRST_N_ITERATIONS,
@@ -283,27 +235,12 @@ class LBMFlowSolver:
             ord=2,
         )
 
-        # d_u__d_x, d_u__d_y = jnp.gradient(macroscopic_velocities[..., 0])
-        # d_v__d_x, d_v__d_y = jnp.gradient(macroscopic_velocities[..., 1])
-        #
-        # curl = (d_u__d_y - d_v__d_x)
-
         X_masked = self.X[self.mask]
         Y_masked = self.Y[self.mask]
 
-        # plt.subplot()
-        # plt.contourf(
-        #     self.X,
-        #     self.Y,
-        #     velocity_magnitude,
-        #     cmap=cmr.lavender,
-        #     levels=50,
-        # )
-
-
         fig = plt.figure(figsize=(10, 8))
         plt.contourf(self.X, self.Y, velocity_magnitude,
-                            levels = 50, cmap=cmr.lavender)
+                     levels=50, cmap=cmr.lavender)
 
         plt.scatter(
             X_masked,
@@ -313,38 +250,12 @@ class LBMFlowSolver:
             alpha=0.8
 
         )
-        # plt.axis('scaled')
         plt.colorbar().set_label("Velocity Magnitude")
-        # plt.axis('off')
         plt.show()
 
-        # plt.subplot(212)
-        # plt.contourf(
-        #     self.X,
-        #     self.Y,
-        #     curl,
-        #     levels=50,
-        #     vmin=-0.02,
-        #     vmax=0.02,
-        #     cmap=cmr.eclipse
-        # )
-        # plt.scatter(
-        #     X_masked,
-        #     Y_masked,
-        #     c='#339C4D',  # adjust color as needed
-        #     s=10,  # adjust size as needed
-        # )
-        # plt.colorbar().set_label("Vorticity Magnitude")
-        # plt.rcParams["figure.figsize"] = (8, 5)
-        #
-        # #plt.subplot(313)
-        # #plt.plot(self.y[1:(self.NY - 1)], velocity_magnitude[self.NX // 2, 1:-1])
-        # plt.draw()
-        # plt.pause(0.0001)
-        # plt.clf()
-        # plt.show()
+    # Too Slow Don't Use
     def animate(self):
-        file = h5py.File('data1_1.hdf5', 'r')
+        file = h5py.File('data_testando.hdf5', 'r')
         g1 = file.get('vel_data')
 
         fig, ax = plt.subplots()
@@ -371,6 +282,7 @@ class LBMFlowSolver:
 
         ani.save('animation.mp4', writer=writer)
         file.close()
+
     def run_simulation(self):
         self.run(self.get_equilibrium_velocities(jnp.zeros((self.NX, self.NY, 2)), jnp.ones((self.NX, self.NY))))
         if self.ANIMATE:
