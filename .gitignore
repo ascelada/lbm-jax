@@ -1,4 +1,8 @@
 /venv
 /.idea
+/data
 animation.mp4
-data.hdf5
+/.ipynb_checkpoints
+__pychahce__
+*.hdf5
+*.npy
